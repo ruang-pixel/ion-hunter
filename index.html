@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>นักล่าไอออน: ตำนานอาหารแห่งเอเลกตรา</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box;touch-action:none;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#0d1f17;font-family:Kanit,Sarabun,system-ui,sans-serif;color:#fff}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+#hud{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:10px;width:min(48vw,230px);font-size:12px;text-shadow:0 1px 2px #000}
+.bar{height:12px;border-radius:7px;background:#0008;margin:3px 0;overflow:hidden;border:1px solid #fff6}
+.bar i{display:block;height:100%}
+#q{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:10px;max-width:46vw;font-size:12px;text-align:right;text-shadow:0 1px 2px #000}
+#st{position:fixed;top:30%;width:100%;text-align:center;font-size:18px;color:#ffd24d;text-shadow:0 2px 4px #000;pointer-events:none}
+#hint{position:fixed;bottom:42%;width:100%;text-align:center;font-size:14px;pointer-events:none;text-shadow:0 1px 3px #000}
+#stick{position:fixed;left:18px;bottom:calc(24px + env(safe-area-inset-bottom,0px));width:120px;height:120px;border-radius:50%;background:#fff2;border:2px solid #fff5}
+#knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#ffd24dcc}
+#btns{position:fixed;right:12px;bottom:calc(20px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(3,58px);gap:8px}
+#btns button{height:58px;border-radius:16px;border:2px solid #fff7;background:#3a2a6acc;color:#fff;font-size:22px}
+#btns button small{display:block;font-size:10px}
+#btns .atk{grid-column:3;grid-row:1/3;height:124px;background:#c0392bcc}
+#ov{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:14px;z-index:5}
+#box{max-width:460px;width:100%;max-height:92%;overflow:auto;background:linear-gradient(#2b1d4a,#1a2c3a);border:2px solid #ffd24d;border-radius:18px;padding:16px;font-size:15px;line-height:1.5}
+#box h3{margin:0 0 6px;color:#ffd24d}
+#box button{display:block;width:100%;margin:6px 0;padding:11px;border-radius:12px;border:1px solid #fff6;background:#35508a;color:#fff;font:inherit}
+#box button.on{background:#2e9e5b}
+#box button.pri{background:#e0902b;color:#000;font-weight:700}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="hud"><div id="lv"></div>
+<div class="bar"><i id="hp" style="background:#e74c3c"></i></div>
+<div class="bar"><i id="en" style="background:#f1c40f"></i></div>
+<div class="bar"><i id="el" style="background:#3ec9ff"></i></div>
+<div>❤️ HP · ⚡ พลัง · 🧪 อิเล็กโทรไลต์</div></div>
+<div id="q"></div><div id="st"></div><div id="hint"></div>
+<div id="stick"><div id="knob"></div></div>
+<div id="btns">
+<button id="bj">⤒<small>กระโดด</small></button><button id="bd">💨<small>หลบ</small></button>
+<button id="ba" class="atk">👊<small>โจมตี</small></button>
+<button id="bc">🍳<small>ปรุง</small></button><button id="bi">🗣️<small>ทำ</small></button>
+</div>
+<div id="ov"><div id="box"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const R=THREE,S=Math.random,$=id=>document.getElementById(id);
+// ---------- คลังคำถาม [คำถาม,[ตัวเลือก (ข้อแรกคือคำตอบที่ถูก)],0,คำอธิบาย] ----------
+const QS=[
+["สารใดต่อไปนี้เป็นอิเล็กโทรไลต์แก่",["โซเดียมคลอไรด์ (NaCl)","น้ำตาลกลูโคส","เอทานอล","น้ำกลั่น"],"NaCl แตกตัวเป็น Na⁺ และ Cl⁻ ได้เกือบสมบูรณ์ จึงเป็นอิเล็กโทรไลต์แก่"],
+["สารละลายอิเล็กโทรไลต์นำไฟฟ้าได้เพราะอะไร",["มีไอออนที่เคลื่อนที่ได้อิสระ","มีโมเลกุลน้ำมาก","มีสีเข้ม","มีอุณหภูมิสูง"],"ไอออนบวกและลบที่เคลื่อนที่ได้ทำหน้าที่พาประจุไฟฟ้า"],
+["น้ำตาลทรายละลายในน้ำแล้วเป็นอย่างไร",["ไม่เป็นอิเล็กโทรไลต์ เพราะไม่แตกตัวเป็นไอออน","เป็นอิเล็กโทรไลต์แก่","เป็นอิเล็กโทรไลต์อ่อน","เป็นกรด"],"น้ำตาลละลายเป็นโมเลกุล ไม่มีไอออน จึงไม่นำไฟฟ้า"],
+["ไอออนใดเป็นไอออนบวกหลักนอกเซลล์ ช่วยรักษาสมดุลน้ำในร่างกาย",["Na⁺","Fe³⁺","Ag⁺","Cu²⁺"],"โซเดียมไอออน (Na⁺) ควบคุมปริมาณน้ำนอกเซลล์และการส่งสัญญาณประสาท"],
+["กล้วยอุดมด้วยไอออนใด ซึ่งสำคัญต่อกล้ามเนื้อและหัวใจ",["K⁺ (โพแทสเซียม)","Cl₂","Pb²⁺","NO"],"K⁺ ช่วยการหดตัวของกล้ามเนื้อและจังหวะการเต้นของหัวใจ"],
+["กรดน้ำส้มสายชู (CH₃COOH) จัดเป็นอะไร",["อิเล็กโทรไลต์อ่อน","อิเล็กโทรไลต์แก่","ไม่เป็นอิเล็กโทรไลต์","โลหะ"],"แตกตัวเป็นไอออนได้เพียงบางส่วน จึงนำไฟฟ้าได้น้อยกว่า HCl"],
+["เสียเหงื่อมากขณะวิ่ง ควรดื่มอะไรเหมาะที่สุด",["เครื่องดื่มเกลือแร่","น้ำเปล่าปริมาณมากอย่างเดียว","น้ำอัดลมเย็นจัด","ไม่ต้องดื่มอะไร"],"เหงื่อพาน้ำและไอออนออกไป ต้องชดเชยทั้งสองอย่าง"],
+["สมการการแตกตัวของ NaCl ในน้ำคือข้อใด",["NaCl → Na⁺ + Cl⁻","NaCl → Na²⁺ + Cl²⁻","NaCl → Na + Cl","NaCl → NaCl₂"],"ประจุรวมต้องเป็นศูนย์ Na⁺ 1 ตัวคู่กับ Cl⁻ 1 ตัว"],
+["อาการตะคริวเมื่อขาดเกลือแร่เกี่ยวข้องกับอะไร",["เซลล์ประสาทและกล้ามเนื้อใช้ไอออนในการส่งสัญญาณ","ร่างกายขาดสีผิว","กระดูกละลายหมด","เลือดกลายเป็นน้ำตาล"],"ไอออนเช่น Na⁺ K⁺ Ca²⁺ ควบคุมการส่งสัญญาณไฟฟ้าของเซลล์"],
+["ที่ความเข้มข้นเท่ากัน สารละลายใดนำไฟฟ้าดีที่สุด",["HCl","CH₃COOH","น้ำตาลทราย","เอทานอล"],"HCl เป็นอิเล็กโทรไลต์แก่ มีไอออนมากที่สุด"],
+["ทำไมน้ำกลั่นบริสุทธิ์จึงนำไฟฟ้าได้น้อยมาก",["มีไอออนน้อยมาก","มีโลหะมาก","เป็นเกลือ","เป็นอิเล็กโทรไลต์แก่"],"น้ำกลั่นแตกตัวน้อยมาก จึงแทบไม่มีไอออนพาประจุ"],
+["โซเดียมไฮดรอกไซด์ (NaOH) ในน้ำจัดเป็น",["อิเล็กโทรไลต์แก่ (เบสแก่)","อิเล็กโทรไลต์อ่อน","สารไม่แตกตัว","กรดแก่"],"NaOH แตกตัวเป็น Na⁺ และ OH⁻ ได้เกือบสมบูรณ์"]
+].map(q=>[q[0],q[1],0,q[2]]);
+const ING={salt:['เกลือผลึกเอเลกตรา','🧂',[0,0,30]],banana:['กล้วยทองแห่งป่า','🍌',[10,5,20]],water:['น้ำใสบริสุทธิ์','💧',[0,20,-5]],honey:['น้ำผึ้งหวาน','🍯',[0,30,0]],meat:['เนื้อมอนสเตอร์','🍖',[30,10,0]]};
+// ---------- สถานะ ----------
+let G={lvl:1,xp:0,hp:100,en:100,el:70,inv:{},gate:false,kills:0,boss:false};
+let paused=true,started=false,buff=0,combo=0,comboT=0,atkCD=0,dashT=0,inv=0,vy=0,yaw=0,status='',toastT=0;
+const maxHp=()=>80+G.lvl*20;
+// ---------- ฉาก ----------
+const scene=new R.Scene();scene.background=new R.Color(0xbfe6d0);scene.fog=new R.Fog(0xbfe6d0,22,85);
+const cam=new R.PerspectiveCamera(60,1,.1,200);
+const ren=new R.WebGLRenderer({canvas:$('c'),antialias:true});ren.shadowMap.enabled=true;
+function rs(){ren.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}rs();addEventListener('resize',rs);
+scene.add(new R.HemisphereLight(0xffffff,0x4a7a55,.85));
+const sun=new R.DirectionalLight(0xfff0c0,.9);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
+Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,near:1,far:120});scene.add(sun,sun.target);
+const mat=c=>new R.MeshToonMaterial({color:c});
+function mk(g,c,x=0,y=0,z=0){const m=new R.Mesh(g,mat(c));m.position.set(x,y,z);m.castShadow=true;return m}
+const ground=new R.Mesh(new R.PlaneGeometry(300,300),mat(0x5fbf6a));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+const cols=[0x2fbf71,0x1b9aaa,0xe05f9a,0x7bd14a];
+for(let i=0;i<75;i++){const x=(S()-.5)*200,z=(S()-.5)*200;if(Math.abs(x)<7&&z>22)continue;const s=S()<.15?2.6:1;
+ const t=new R.Group();t.add(mk(new R.CylinderGeometry(.35*s,.5*s,4*s,7),0x7a4b2a,0,2*s,0),mk(new R.SphereGeometry(2*s,9,8),cols[i%4],0,4.6*s,0));t.position.set(x,0,z);scene.add(t)}
+// ผู้เล่น (สัดส่วนอนิเมะ: หัวใหญ่ ผมแหลม)
+const P=new R.Group(),fl=mk(new R.SphereGeometry(.2,8,8),0xff4d4d,-.55,1.1,.1),fr=mk(new R.SphereGeometry(.2,8,8),0xff4d4d,.55,1.1,.1);
+P.add(mk(new R.CylinderGeometry(.4,.5,1,10),0xff8a3d,0,.9,0),mk(new R.SphereGeometry(.5,14,12),0xffd6b0,0,1.8,0),fl,fr,
+ mk(new R.SphereGeometry(.07,6,6),0x222222,-.17,1.85,.45),mk(new R.SphereGeometry(.07,6,6),0x222222,.17,1.85,.45));
+for(let i=0;i<6;i++){const a=i/6*6.28;P.add(mk(new R.ConeGeometry(.17,.6,5),0x2a6fff,Math.cos(a)*.3,2.35,Math.sin(a)*.3))}
+P.position.set(0,0,30);scene.add(P);
+// NPC พ่อครัว
+const npc=new R.Group();npc.add(mk(new R.CylinderGeometry(.45,.55,1.1,10),0x2e9e5b,0,.55,0),mk(new R.SphereGeometry(.5,12,10),0xffd6b0,0,1.6,0),mk(new R.CylinderGeometry(.4,.4,.6,10),0xffffff,0,2.3,0));
+npc.position.set(5,0,28);npc.rotation.y=-1;scene.add(npc);
+// ประตูไอออน
+const gate=mk(new R.BoxGeometry(18,7,1),0x8a2be2,0,3.5,-45);gate.material.emissive=new R.Color(0x5a1aa0);scene.add(gate);
+// ของเก็บ
+const items=[];
+function addItem(){const k=['salt','banana','water','honey'][S()*4|0],c={salt:0xffffff,banana:0xffe14d,water:0x4db8ff,honey:0xff9d2e}[k];
+ const m=mk(k=='salt'?new R.OctahedronGeometry(.4):new R.SphereGeometry(.32,10,8),c);m.material.emissive=new R.Color(c).multiplyScalar(.4);
+ m.position.set((S()-.5)*110,.8,-40+S()*85);scene.add(m);items.push({m,k})}
+for(let i=0;i<28;i++)addItem();
+// สัตว์ประหลาด
+const mons=[];
+function spawn(x,z,boss){const s=boss?3:1,c=boss?0x8a2be2:[0xe84a5f,0x2ec4b6,0xffbf00,0x7b5cff][mons.length%4];
+ const g=new R.Group(),b=mk(new R.SphereGeometry(.85,14,12),c,0,.9,0);g.add(b,mk(new R.SphereGeometry(.22,8,8),0xffffff,-.3,1.2,.7),mk(new R.SphereGeometry(.22,8,8),0xffffff,.3,1.2,.7),
+ mk(new R.SphereGeometry(.1,6,6),0x000000,-.3,1.2,.9),mk(new R.SphereGeometry(.1,6,6),0x000000,.3,1.2,.9),mk(new R.ConeGeometry(.2,.6,6),0xfff2cc,-.5,1.9,0),mk(new R.ConeGeometry(.2,.6,6),0xfff2cc,.5,1.9,0));
+ g.scale.setScalar(s);g.position.set(x,0,z);scene.add(g);
+ const hp=boss?260:30+(z<-48?25:0);mons.push({g,b,hp,max:hp,boss,q:0,cd:1.5,tele:0,rage:1,stun:0,ph:S()*6})}
+for(let i=0;i<12;i++){let x,z;do{x=(S()-.5)*100;z=-40+S()*60}while(Math.hypot(x,z-30)<14);spawn(x,z,false)}
+for(let i=0;i<4;i++)spawn((S()-.5)*60,-55-S()*30,false);
+spawn(0,-95,true);
+// เอฟเฟกต์
+const parts=[];
+function burst(p,c,n=8){for(let i=0;i<n;i++){const m=new R.Mesh(new R.SphereGeometry(.1,5,4),new R.MeshBasicMaterial({color:c,transparent:true}));m.position.copy(p);m.position.y+=1;scene.add(m);parts.push({m,v:new R.Vector3((S()-.5)*6,S()*5,(S()-.5)*6),l:.6})}}
+const leaves=[];for(let i=0;i<35;i++){const m=new R.Mesh(new R.PlaneGeometry(.25,.25),new R.MeshBasicMaterial({color:0xcff08a,side:2}));m.position.set((S()-.5)*40,S()*10,(S()-.5)*40);scene.add(m);leaves.push(m)}
+// ---------- UI ----------
+function show(h){$('box').innerHTML=h;$('ov').style.display='flex'}
+function hide(){$('ov').style.display='none'}
+function say(h,cb){paused=true;show(h+'<button id=nx class=pri>ตกลง</button>');$('nx').onclick=()=>{hide();paused=false;cb&&cb()}}
+function toast(t){$('st').textContent=t;toastT=2}
+function ask(title,cb){paused=true;const q=QS[S()*QS.length|0],o=q[1].map((t,i)=>i).sort(()=>S()-.5);
+ show(`<h3>${title}</h3><p>${q[0]}</p>`+o.map(i=>`<button class=ch data-i=${i}>${q[1][i]}</button>`).join(''));
+ document.querySelectorAll('.ch').forEach(b=>b.onclick=()=>{const ok=+b.dataset.i===0;
+  show(`<h3>${ok?'✅ ถูกต้อง!':'❌ ยังไม่ถูก'}</h3><p>${q[3]}</p><button id=nx class=pri>ไปต่อ</button>`);
+  $('nx').onclick=()=>{hide();paused=false;cb(ok)}})}
+function gain(x){G.xp+=x;while(G.xp>=G.lvl*50){G.xp-=G.lvl*50;G.lvl++;G.hp=maxHp();toast('⬆️ เลเวลอัป! Lv.'+G.lvl)}}
+function addInv(k,n=1){G.inv[k]=(G.inv[k]||0)+n}
+// ปรุงอาหาร
+let sel=[];
+function cookUI(){paused=true;const ks=Object.keys(G.inv).filter(k=>G.inv[k]>0);
+ show('<h3>🍳 ปรุงอาหาร</h3><p>เลือกวัตถุดิบ 1–2 อย่าง แล้วตอบคำถามเพื่อปรุงให้สมบูรณ์</p>'+(ks.length?ks.map(k=>`<button class="ch${sel.includes(k)?' on':''}" data-k=${k}>${ING[k][1]} ${ING[k][0]} ×${G.inv[k]}</button>`).join(''):'<p>ยังไม่มีวัตถุดิบ ไปเก็บของและล่ามอนสเตอร์กัน!</p>')+'<button id=go class=pri>ปรุง!</button><button id=cl>ปิด</button>');
+ document.querySelectorAll('.ch').forEach(b=>b.onclick=()=>{const k=b.dataset.k,i=sel.indexOf(k);if(i>=0)sel.splice(i,1);else{if(sel.length>=2)sel.shift();sel.push(k)}cookUI()});
+ $('cl').onclick=()=>{sel=[];hide();paused=false};
+ $('go').onclick=()=>{if(!sel.length)return;const use=sel.slice();sel=[];hide();
+  ask('ตอบเพื่อปรุงให้อร่อย',ok=>{const m=ok?1.5:.7;let d=[0,0,0];use.forEach(k=>{G.inv[k]--;ING[k][2].forEach((v,i)=>d[i]+=v)});
+   const hp=Math.round(d[0]*m),en=Math.round(d[1]*m),el=Math.round(d[2]*m);
+   G.hp=Math.min(maxHp(),G.hp+hp);G.en=Math.min(100,G.en+en);G.el=Math.max(0,Math.min(100,G.el+el));
+   let note=use.length==1&&use[0]=='water'?'<p>💡 น้ำเปล่าอย่างเดียวไม่เติมไอออน ควรกินคู่กับเกลือแร่เช่น Na⁺ และ K⁺</p>':use.includes('salt')?'<p>💡 เกลือให้ Na⁺ และ Cl⁻ ช่วยเพิ่มระดับอิเล็กโทรไลต์</p>':'';
+   say(`<h3>${ok?'🌟 จานสุดยอด!':'🍲 จานพอใช้'}</h3><p>${use.map(k=>ING[k][1]+ING[k][0]).join(' + ')}</p><p>❤️ +${hp} ⚡ +${en} 🧪 +${el}</p>${note}`)})}}
+// ---------- บันทึก/โหลด ----------
+function save(){try{localStorage.setItem('ion',JSON.stringify({G,x:P.position.x,z:P.position.z}));toast('💾 บันทึกแล้ว')}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem('ion'));if(!d)return false;G=d.G;P.position.set(d.x,0,d.z);if(G.gate)scene.remove(gate);if(G.boss){const b=mons.find(m=>m.boss);scene.remove(b.g);b.hp=0}return true}catch(e){return false}}
+// ---------- ต่อสู้ ----------
+function attack(){if(paused||atkCD>0)return;atkCD=.35;combo=comboT>0?Math.min(combo+1,4):1;comboT=1;P.userData.pt=.2;
+ const fx=Math.sin(P.rotation.y),fz=Math.cos(P.rotation.y);
+ mons.forEach(m=>{if(m.hp<=0)return;const dx=m.g.position.x-P.position.x,dz=m.g.position.z-P.position.z,d=Math.hypot(dx,dz),reach=m.boss?5.5:3.2;
+  if(d<reach&&(dx*fx+dz*fz)/(d||1)>.2){m.hp-=(8+G.lvl*2+combo*3)*(buff>0?2:1);burst(m.g.position,0xffe14d,10);
+   if(!m.boss){m.g.position.x+=dx/d*.8;m.g.position.z+=dz/d*.8}
+   if(m.hp<=0){scene.remove(m.g);G.kills++;gain(m.boss?150:20);addInv('meat');if(S()<.6)addInv(['salt','banana','water','honey'][S()*4|0]);burst(m.g.position,0xff6b6b,18);toast(m.boss?'👑 ชนะบอส!':'ล่าสำเร็จ! ได้วัตถุดิบ');
+    if(m.boss){G.boss=true;setTimeout(()=>say('<h3>🏆 จบการผจญภัย</h3><p>เจ้าชนะราชาแห่งไอออนแล้ว! เจ้าเข้าใจแล้วว่าไอออนอย่าง Na⁺ K⁺ Cl⁻ คือหัวใจของพลังชีวิต ทั้งการส่งสัญญาณประสาท การหดตัวของกล้ามเนื้อ และสมดุลน้ำ</p>'),600)}}
+   else if(m.boss){[.66,.33].forEach((f,i)=>{if(!(m.q&(1<<i))&&m.hp<m.max*f){m.q|=1<<i;ask('👑 บอสรวมพลังไอออน! ตอบให้ถูกเพื่อทำลายสมาธิบอส',ok=>{if(ok){m.stun=4;toast('บอสมึนงง!')}else{G.hp-=15;toast('ถูกสวนกลับ -15')}})}})}}})}
+function dodge(){if(paused||dashT>0)return;dashT=.25;inv=.45}
+function interact(){if(paused)return;const dn=Math.hypot(P.position.x-npc.position.x,P.position.z-npc.position.z),dg=Math.abs(P.position.z+45);
+ if(dn<4){say(G.boss?'<p>ขอบคุณที่ช่วยเอเลกตรา!</p>':!G.gate?`<h3>พ่อครัวผู้เฒ่า</h3><p>นักล่าหนุ่ม! ปีศาจไอออนยึดอาหารไปหมด จงล้มมอนสเตอร์ 5 ตัว (ตอนนี้ ${G.kills}/5) แล้วเปิดประตูไอออนทางเหนือ</p><p>💡 ระวังเหงื่อออกมาก ระดับอิเล็กโทรไลต์ 🧪 จะตก ให้กินเกลือกับกล้วยเพื่อเติม Na⁺ และ K⁺</p>`:'<p>ประตูเปิดแล้ว! ราชาแห่งไอออนอยู่ทางเหนือสุด จงเตรียมอาหารให้พร้อม</p>')}
+ else if(!G.gate&&dg<6&&Math.abs(P.position.x)<10){if(G.kills<5)say('<p>🔒 ประตูถูกผนึก ต้องล่ามอนสเตอร์ให้ครบ 5 ตัวก่อน</p>');else ask('🔒 ประตูไอออน ตอบคำถามเพื่อปลดผนึก',ok=>{if(ok){G.gate=true;scene.remove(gate);toast('ประตูเปิดแล้ว!');save()}else{G.en=Math.max(0,G.en-10);toast('ประตูต้านกลับ ⚡-10')}})}
+ else toast('ไม่มีอะไรให้ทำตรงนี้')}
+// ---------- อินพุต ----------
+const keys={};let jx=0,jy=0;
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1;const k=e.key.toLowerCase();if(k==' ')jump();if(k=='j')attack();if(k=='k')dodge();if(k=='e')interact();if(k=='c')cookUI()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+function jump(){if(!paused&&P.position.y<=.01)vy=9}
+const bind=(id,f)=>$(id).onpointerdown=e=>{e.preventDefault();f()};
+bind('bj',jump);bind('bd',dodge);bind('ba',attack);bind('bc',cookUI);bind('bi',interact);
+const st=$('stick'),kn=$('knob');let sid=null;
+function mv(e){const r=st.getBoundingClientRect();let dx=(e.clientX-r.left-r.width/2)/(r.width/2),dy=(e.clientY-r.top-r.height/2)/(r.height/2);const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}jx=dx;jy=dy;kn.style.transform=`translate(${dx*40}px,${dy*40}px)`}
+st.onpointerdown=e=>{sid=e.pointerId;st.setPointerCapture(sid);mv(e)};st.onpointermove=e=>{if(e.pointerId===sid)mv(e)};
+st.onpointerup=st.onpointercancel=()=>{sid=null;jx=jy=0;kn.style.transform=''};
+let lx=null;const cv=$('c');cv.onpointerdown=e=>lx=e.clientX;cv.onpointermove=e=>{if(lx!=null&&e.buttons!==0){yaw-=(e.clientX-lx)*.008;lx=e.clientX}};cv.onpointerup=()=>lx=null;
+// ---------- อัปเดต ----------
+function update(dt,t){
+ atkCD-=dt;comboT-=dt;buff-=dt;inv-=dt;toastT-=dt;if(toastT<0)$('st').textContent=status;
+ let kx=(keys.d?1:0)-(keys.a?1:0)+jx,kz=(keys.s?1:0)-(keys.w?1:0)+jy;const l=Math.hypot(kx,kz);if(l>1){kx/=l;kz/=l}
+ const moving=l>.15;let sp=(l>.85?7.5:4.5)*(G.el<25||G.en<=0?.6:1);
+ const dx=Math.cos(yaw)*kx+Math.sin(yaw)*kz,dz=-Math.sin(yaw)*kx+Math.cos(yaw)*kz;
+ if(moving){P.position.x+=dx*sp*dt;P.position.z+=dz*sp*dt;P.rotation.y=Math.atan2(dx,dz)}
+ if(dashT>0){dashT-=dt;P.position.x+=Math.sin(P.rotation.y)*16*dt;P.position.z+=Math.cos(P.rotation.y)*16*dt}
+ vy-=25*dt;P.position.y+=vy*dt;if(P.position.y<=0){P.position.y=0;vy=0}
+ if(!G.gate&&P.position.z<-43)P.position.z=-43;
+ P.position.x=Math.max(-120,Math.min(120,P.position.x));P.position.z=Math.max(-120,Math.min(120,P.position.z));
+ G.el=Math.max(0,G.el-(moving?.6:.12)*dt);if(moving)G.en=Math.max(0,G.en-.25*dt);
+ if(G.el<25){G.hp-=.8*dt;status='⚠️ ตะคริว! ขาดอิเล็กโทรไลต์ ไปปรุงอาหาร'}else if(G.en<=0)status='😮‍💨 หมดแรง ไปหาอะไรกิน';else status='';
+ if(G.el>=40&&G.en>30&&G.hp<maxHp())G.hp=Math.min(maxHp(),G.hp+.5*dt);
+ // ท่าทาง
+ const pt=P.userData.pt||0;P.userData.pt=Math.max(0,pt-dt);fr.position.z=.1+(pt>0?.9:0);fl.position.z=.1+(pt>0?.5:0);P.children[1].position.y=1.8+Math.sin(t*(moving?12:3))*.04;
+ // เก็บของ
+ for(let i=items.length-1;i>=0;i--){const it=items[i];it.m.rotation.y+=dt*2;it.m.position.y=.8+Math.sin(t*3+i)*.15;
+  if(Math.hypot(it.m.position.x-P.position.x,it.m.position.z-P.position.z)<1.6){addInv(it.k);toast('เก็บ '+ING[it.k][1]+' '+ING[it.k][0]);scene.remove(it.m);items.splice(i,1);setTimeout(addItem,25000)}}
+ // มอนสเตอร์
+ mons.forEach(m=>{if(m.hp<=0)return;const gp=m.g.position,mx=P.position.x-gp.x,mz=P.position.z-gp.z,d=Math.hypot(mx,mz),s=m.boss?3:1;
+  m.g.scale.y=s*(1+Math.sin(t*4+m.ph)*.06);m.stun-=dt;
+  if(d<14&&m.stun<=0&&m.tele<=0){gp.x+=mx/d*(m.boss?2.2:3)*m.rage*dt;gp.z+=mz/d*(m.boss?2.2:3)*m.rage*dt}
+  if(d<14)m.g.rotation.y=Math.atan2(mx,mz);
+  if(!m.boss&&!m.q&&d<10){m.q=1;ask('⚔️ มอนสเตอร์ขวางทาง! ตอบก่อนเริ่มสู้',ok=>{if(ok){buff=20;gain(10);toast('💪 พลังโจมตี x2 (20 วิ)')}else{G.en=Math.max(0,G.en-10);m.rage=1.3;toast('⚡-10 มอนสเตอร์โกรธ!')}})}
+  m.cd-=dt;const reach=(m.boss?4.8:2.4);
+  if(m.cd<=0&&d<reach&&m.stun<=0){m.tele=.5;m.cd=1.7}
+  if(m.tele>0){m.tele-=dt;m.b.material.emissive.setRGB(1,.1,.1);if(m.tele<=0){m.b.material.emissive.setRGB(0,0,0);if(Math.hypot(P.position.x-gp.x,P.position.z-gp.z)<reach+.6&&inv<=0){G.hp-=m.boss?18:8;inv=.5;burst(P.position,0xff3030,8);toast('โดนโจมตี!')}}}});
+ if(G.hp<=0){G.hp=1;ask('💀 พ่ายแพ้! ตอบเพื่อฟื้นคืนชีพ',ok=>{G.hp=maxHp()*(ok?.5:.2);G.el=ok?60:40;G.en=Math.max(G.en,40);P.position.set(0,0,30)})}
+ // เอฟเฟกต์
+ for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.v.y-=12*dt;p.m.position.addScaledVector(p.v,dt);p.l-=dt;p.m.material.opacity=Math.max(0,p.l/.6);if(p.l<=0){scene.remove(p.m);parts.splice(i,1)}}
+ leaves.forEach((m,i)=>{m.position.y-=dt*.8;m.position.x+=Math.sin(t+i)*dt;m.rotation.x+=dt*2;if(m.position.y<0){m.position.set(P.position.x+(S()-.5)*40,10,P.position.z+(S()-.5)*40)}});
+ gate.material.emissiveIntensity=.6+Math.sin(t*3)*.4;
+ // กล้อง
+ cam.position.set(P.position.x+Math.sin(yaw)*9,P.position.y+6,P.position.z+Math.cos(yaw)*9);cam.lookAt(P.position.x,1.5,P.position.z);
+ sun.position.set(P.position.x+20,40,P.position.z+10);sun.target.position.copy(P.position);
+ // HUD
+ $('hp').style.width=Math.max(0,G.hp/maxHp()*100)+'%';$('en').style.width=G.en+'%';$('el').style.width=G.el+'%';
+ $('lv').textContent=`Lv.${G.lvl}  XP ${G.xp}/${G.lvl*50}`+(buff>0?'  💪x2':'')+(comboT>0&&combo>1?'  COMBO ×'+combo:'');
+ $('q').textContent=G.boss?'🏆 ภารกิจสำเร็จ':G.gate?'ภารกิจ: ปราบราชาแห่งไอออนทางเหนือ':`ภารกิจ: ล่ามอนสเตอร์ ${Math.min(G.kills,5)}/5 แล้วเปิดประตูไอออน`;
+ const dn=Math.hypot(P.position.x-npc.position.x,P.position.z-npc.position.z);
+ $('hint').textContent=dn<4?'กด 🗣️ เพื่อคุยกับพ่อครัว':(!G.gate&&Math.abs(P.position.z+45)<6?'กด 🗣️ เพื่อปลดผนึกประตู':'');
+}
+let last=performance.now(),T=0,sv=0;
+function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/1000);last=now;T+=dt;
+ if(started&&!paused){update(dt,T);sv+=dt;if(sv>25){sv=0;save()}}ren.render(scene,cam)}
+requestAnimationFrame(loop);
+// ---------- หน้าเริ่มเกม ----------
+let hasSave=false;try{hasSave=!!localStorage.getItem('ion')}catch(e){}
+show(`<h3>🍖 นักล่าไอออน</h3><p>ในโลกเอเลกตรา อาหารทุกจานซ่อนพลังของไอออน! ล่ามอนสเตอร์ เก็บวัตถุดิบ ปรุงอาหาร และตอบคำถามเรื่อง <b>สารละลายอิเล็กโทรไลต์</b> เพื่อเอาชนะราชาแห่งไอออน</p>
+<p style="font-size:13px">จอยสติ๊กซ้าย = เดิน · ลากนิ้วบนฉาก = หมุนกล้อง · 👊 โจมตีต่อเนื่องเพื่อคอมโบ · 💨 หลบ · 🍳 ปรุงอาหาร · 🗣️ คุย/เปิดประตู<br>คอม: WASD, Space, J, K, E, C<br>🧪 หลอดฟ้าคืออิเล็กโทรไลต์ ถ้าต่ำกว่า 25 จะเป็นตะคริว</p>
+<button id=ns class=pri>เริ่มเกมใหม่</button>${hasSave?'<button id=ld>โหลดเกมที่บันทึก</button>':''}`);
+$('ns').onclick=()=>{hide();started=true;paused=false;say('<h3>พ่อครัวผู้เฒ่า</h3><p>ไปคุยกับข้าก่อน (กด 🗣️ เมื่อยืนใกล้ๆ) แล้วออกล่าได้เลย!</p>')};
+if($('ld'))$('ld').onclick=()=>{load();hide();started=true;paused=false};
+</script></body></html>
